@@ -10,7 +10,7 @@ extern void init_timeoutq( void );
 extern int bring_timeoutq_current( void );
 extern void create_timeoutq_event(int timeout, int repeat, pfv_t function, unsigned int data);
 extern int handle_timeoutq_event( void );
-
+extern unsigned int then_usec;
 
 void
 notmain()
@@ -31,5 +31,6 @@ notmain()
 		}
 		timeout = bring_timeoutq_current();
 		wait(timeout);
+                then_usec = now_usec();
 	}
 }

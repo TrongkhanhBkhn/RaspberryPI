@@ -39,5 +39,5 @@ void wait (unsigned int delay)
       {
             now = now_usec();
             now =  now / delay;             
-      } while(now != 0);
+      } while(now == 0);
 }

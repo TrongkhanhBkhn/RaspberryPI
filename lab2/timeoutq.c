@@ -4,7 +4,7 @@
 
 #include "os.h"
 #include "llist.h"
-
+#include "common.h"
 
 struct event {
 	LL_PTRS;
@@ -25,13 +25,14 @@ struct event *timeoutq;
 struct event *freelist;
 
 unsigned int then_usec;
+uint8_t _time_repeat;
 
 //
 // sets up concept of local time
 // initializes the timeoutq and freelist
 // fills the freelist with entries
 // timeoutq is empty
-//
+// 
 void
 init_timeoutq()
 {
@@ -58,7 +59,7 @@ init_timeoutq()
 int
 bring_timeoutq_current()
 {
-	
+      return _time_repeat;
 }
 
 
@@ -87,25 +88,20 @@ create_timeoutq_event(int timeout, int repeat, pfv_t function, unsigned int data
 // return whether or not you handled anything
 //
 int
-handle_timeoutq_event( )
+handle_timeoutq_event()
 {
     struct event* ep = timeoutq;
     unsigned int now;
-    int event_num = 0;
+    _time_repeat = 0;
     do{
         now = now_usec();
-        if(now % ep->timeout == 0)
+        if((now - then_usec) % ep->timeout == 0)
         {
             (ep->go)(ep->data);
-             event_num ++;
-             ep->repeat_interval --;
-             if(ep->repeat_interval <=0){
-                 LL_DETACH(timeoutq, ep);
-                 ep = LL_NULL;
-                 LL_PUSH(freelist, ep);
-             }
+             _time_repeat = ep->repeat_interval;
+             return 0;
         }    
     }while((ep = timeoutq->next) != LL_NULL);
     
-   return  event_num;
+   return  1;
 }
