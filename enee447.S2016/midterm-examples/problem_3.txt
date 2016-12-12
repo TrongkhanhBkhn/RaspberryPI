@@ -1,0 +1,51 @@
+IPC
+
+2 forms of IPC, shared memory and direct messaging. 
+
+Shared Memory
+Better for most on-computer purposes. The process which wants to communicate out opens up some memory. both Processes note that they can read and/or write to it. Shared memory is faster, and better for large or variable length messages. Shared memory uses a file, whereas direct messaging uses a pipe. 
+
+Direct messaging is better when doing distributed processing. One process sends data to another and this data is bufferred by the kernel. This means there is likely to be a max size sendable before the consumer starts consuming. 
+
+Variable length messages and fixed length messages can be used for both. With fixed length messages, the sender might get mucked up or messages might drop. 
+Both ways can run into some problems. 
+
+1. Only one process can be writing at a time, and no processes can be reading while this is going on. The solution to this must deal with 3 things. 
+    a. Reading processes can read at the same time. 
+    b. If a process wants to write, it should do so ASAP. 
+    c. A maximum of time for any process to deal with memory should be implemented. 
+
+2. Processes need to be running at the same time if possible so one isn't waiting on an idle process. 
+
+3. For a variable length memory space, it is very tricky for the kernel to store the space effectively, but for fixed length memory, the process programmer must be very careful not to overfill the buffer. 
+
+The Operating System must either store the messages in the Direct Memory Model or make sure that both processes know that they can read from and know the memory limits of a certain chunk of memory. 
+
+Direct memory model
+__________
+    A   |_|---,
+__________|   |
+    B   |_|<, |
+__________| | |
+          | | |
+          | | |
+          | | |
+          | | |
+__________|,' |
+ Kernel |_|<--'
+__________|
+
+Shared memory model. 
+__________
+    A     |---,
+__________|   |
+Shared Mem|<--'
+__________|---,
+    B     |   |
+__________|<--'
+          |    
+          |    
+          |    
+__________|    
+ Kernel   |    
+__________|

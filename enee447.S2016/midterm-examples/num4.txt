@@ -1,0 +1,10 @@
+The big issues are synchronization and memory handling. with a single core, only one job is handled at a time. There are few worries about two processes manipulating the same memory. Additionally the cache can be updated at the end of a process's quantum. 
+
+With multicore, these options are more prevalent. 'Old school' locks and locking structures, ,such as semaphores, mostly relied on stopping processes that reached the lock and were not let past it. With multiple cores checking a lock simultaneously, more than one process may accidentally be let in if a second reads the lock as "open" before the first can "close" it.
+
+Furthermore, there are still big issues regarding memory. Multiple processes could read/write the same memory. Processes A&B can reach code that says to write a value to the same address. Along w/ the lock issue above, A could write 1 and B write 2  at the same time and there is no guarantee what was written.
+
+Old locking systems relied on a boolean lock/unlock. New systems need to be more of an id gate. Instead of letting any process in an unlock state, locks use ids to ensure only a thread w/ an appropriate ID passes. 
+
+As for memory itself, Virtual Memory helps with cache coherency and general management. VM can ensure processes running simultaneously do not have physical memory that 'step on one another', ie: re-enterance, and also have caches focus on pages alone. There are still cache issues w/ multiprocessing, as if an already in use page is grabbed, what's in the page is now a crapshoot. Locking pages in a way that handles multiprocessing is important for that reason.
+

@@ -5,6 +5,7 @@
 #include "os.h"
 #include "llist.h"
 #include "common.h"
+#include "time.h"
 
 struct event {
 	LL_PTRS;
@@ -91,11 +92,15 @@ int
 handle_timeoutq_event()
 {
     struct event* ep = timeoutq;
-    unsigned int now;
+    unsigned int time_now;
+    unsigned int time_start;
+    unsigned int time_diff;
     _time_repeat = 0;
+    time_start = now_usec();
     do{
-        now = now_usec();
-        if((now - then_usec) % ep->timeout == 0)
+        time_now = now_usec();
+        time_diff = time_now - time_start;
+        if(time_diff == ep->timeout)
         {
             (ep->go)(ep->data);
              _time_repeat = ep->repeat_interval;

@@ -1,0 +1,1504 @@
+<HTML>
+<HEAD>
+
+<TITLE>ENEE 447 - Crash Course in C</TITLE>
+
+</HEAD>
+
+<body
+   bgcolor="#ffffff"
+   text="#000000"
+   link="#0000ff"
+   alink="#00ffff"
+   vlink="#ff0000"
+>
+
+<p>
+<strong><font size=+1>A Crash Course in C Programming</font></strong>
+</p>
+
+This example assumes that you know at least the fundamentals of the C programming language.<p>
+
+If you are a computer engineer, you will use C regularly, and you should thoroughly understand
+a few features of C that you will use again and again and again and again.
+They are probably not the typical features that you were taught in your C programming
+class, since they are not needed to solve the Tower of Hanoi or do a quicksort.
+<p>
+
+They include the following:
+
+<ul>
+    <li> arrays, structures, and pointers
+    <li> pointers to pointers
+    <li> string manipulation
+    <li> arguments to programs
+    <li> bitfields and bitmasks
+</ul>
+
+You might also be interested in the following low-level aspects of C that are usually
+hidden by the compiler when you write high-level programs, because,
+if you do work in computer engineering, you will frequently 
+write slightly lower-level programs (in that they are operating systems, or emulate machine hardware, etc.).  
+Thus the following will be important:
+
+<ul>
+    <li> storage allocation & data representation
+    <li> registers vs. memory
+    <li> how functions work
+    <li> stack vs. heap, or <i>automatic</i> vs. <i>static</i> variables
+</ul>
+
+First off, we will do the low-level aspects of C, then get to the language features.
+
+<p>
+<strong><font size=+1>Storage Allocation & Data Representation</font></strong>
+</p>
+
+You need to understand that there is this thing called <i>memory</i> 
+that holds all of your variables.
+C allows you to declare data types, such as the following:
+<pre>
+    int a, b, c;
+    int *ip;
+    char str[] = "strlen 18, size 19";
+    char *cp;
+    int A[2] = { 5551212, 5551313 };
+    double f;
+</pre>
+These data items are not simply floating around somewhere; they are stored in the machine's memory.
+You refer to them with nice names such as <i>str</i> and <i>cp</i>, but the
+machine does not know these names; they are constructions of the compiler and
+are translated into numeric addresses for the sake of the machine.
+<p>
+
+For instance, if we are talking about a 32-bit machine and the data are placed in the
+same area of memory (sometimes strings go somewhere other than integer and floating-point
+data), the memory area would look a little like the following (the string <i>str</i> and
+the array <i>A</i> are the only data items initialized, so they are
+the only items containing any information):
+
+<pre>
+	    <-- 32-bit quantity -->
+	   -------------------------
+	   |                       |
+	   -------------------------
+	f: |                       |
+	   -------------------------
+	   |       5551313         |
+	   -------------------------
+	A: |       5551212         |
+	   -------------------------
+       cp: |                       |
+	   -------------------------
+	   |  1  |  9  |  \0 |  ?  |
+	   -------------------------
+	   |  i  |  z  |  e  |     |
+	   -------------------------
+	   |  8  |  ,  |     |  s  |
+	   -------------------------
+	   |  e  |  n  |     |  1  |
+	   -------------------------
+      str: |  s  |  t  |  r  |  l  |
+	   -------------------------
+       ip: |                       |
+	   -------------------------
+	c: |                       |
+	   -------------------------
+	b: |                       |
+	   -------------------------
+	a: |                       |
+	   -------------------------
+</pre>
+
+This example assumes that we will give locations in memory the following addresses:
+
+<pre>
+	<-- 32-bit quantity -->
+       -------------------------
+       | etc | etc | ... | ... |
+       -------------------------
+       |  8  |  9  |  10 |  11 |
+       -------------------------
+       |  4  |  5  |  6  |  7  |
+       -------------------------
+       |  0  |  1  |  2  |  3  |
+       -------------------------
+</pre>
+
+So, the first three data items in memory (starting with item <i>a</i>)
+are four-byte quantities interpreted as integers.
+The compiler makes sure that the machine interprets the data correctly.
+Therefore when we say:
+<pre>
+	a = b;
+</pre>
+this translates to:
+<pre>
+	copy four bytes, starting at memory location b, to memory location a
+</pre>
+When we say:
+<pre>
+	str[0] = str[7];
+</pre>
+this translates to:
+<pre>
+	copy one byte, starting at memory location str+7, to memory location str+0
+</pre>
+And when we say:
+<pre>
+	f = 3.14159
+</pre>
+this translates to:
+<pre>
+	place into memory location f an 8-byte quantity having the value 3.14159
+</pre>
+
+Note that the MACHINE does no such interpreting; if you told it to jump
+to address 0 (or whatever address at which we have loaded item <i>a</i>),
+it would interpret the data as an instruction.
+If you told it to load the data there and print it out as a string, it
+would treat the data as a bunch of characters.
+If you told it to perform floating-point operations on it, the machine
+would treat that data as a floating-point number.
+Nonetheless, our C compiler will keep all usage straight and will make sure
+that we only use the 4-byte data item at location <i>a</i> as an integer.
+<p>
+At memory location <i>ip</i> we have something slightly different.
+This piece of data is declared as a pointer to an integer.
+This means that the data item will be used to <i>reference</i> integers.
+It will not hold integer values itself; it will merely <i>point</i> to
+storage locations that hold integers.
+<p>
+The distinction is critical; we will get to it in detail in a moment.
+Let us suppose that both <i>a</i> and <i>ip</i> contain the value 8.
+Then the following lines of code do two different things:
+<pre>
+	a = 8;
+	a = 4;
+
+	ip = 8;
+	*ip = 4;
+</pre>
+The first line places the value 8 into the location <i>a</i>, overwriting
+whatever was previously there.
+The second line places the value 4 into the location <i>a</i>, overwriting
+the value 8.
+The third line places the value 8 into the location <i>ip</i>, overwriting
+whatever was previously there.
+The fourth line <i>de-references</i> the pointer <i>ip</i> and says
+to the computer: place the value 4 into the integer referenced by <i>ip</i>.
+Since <i>ip</i> currently has the value 8, the computer places the value 4
+at the location 8, which happens to be item <i>c</i>.
+<p>
+Since we have previously declared <i>ip</i> to be a pointer to an integer, the
+statement
+<pre>
+	*ip = 4;
+</pre>
+is legal.  The statement 
+<pre>
+	*a = 4;
+</pre>
+is not, because <i>a</i> is declared to be an integer, not a pointer.
+<p>
+The compiler is also smart enough to detect the problem with this:
+<pre>
+	*ip = 4.5;
+</pre>
+<i>Ip</i> is a pointer to an integer, not a pointer to a floating point number.
+Therefore, the assignment mixes types, and many compilers will refuse
+to interpret it -- they issue an error statement and quit.
+
+<p>
+
+The next item in the list is the character array <i>str</i>, which has
+been initialized to the value "strlen 18, size 19".
+The string-length of the character array is 18 bytes, but the amount of
+space that it occupies is 19 bytes; strings are null-terminated, so
+for every string there is an extra zero-byte at the end.
+The amount of space the compiler allocates to hold the string is actually
+20 bytes -- a multiple of 4 (the word size).
+I will get to this in a moment.
+
+<p>
+
+Note that the first character in a string starts at the lowest memory
+address, and the string works its way upward in memory, not downward.
+We could use the character pointer <i>cp</i> to point at the data
+elements in this character array.
+Say we do the following:
+<pre>
+	cp = str;
+	cp++;
+	cp = cp + 1;
+	*cp = '\0';
+</pre>
+The first line assigns location of <i>str</i> to the variable <i>cp</i>,
+therefore the value 16 gets put into the location marked <i>cp</i>.
+The next line increments <i>cp</i>, so the pointer gets the new value
+17, and so points at the second element in <i>str</i> (the 't' character).
+The third line does the same, and <i>cp</i> points to the 'r' character.
+The fourth line does not change the value of <i>cp</i>; it changes the
+value of the thing that <i>cp</i> points to -- the 'r' character.
+At this point, we have changed the data in the string.
+We have placed a NULL character where the 'r' used to be.
+Memory now looks like the following:
+
+<pre>
+   starting addr    <-- 32-bit quantity -->
+		   -------------------------
+	52	   |                       |
+		   -------------------------
+	48	f: |                       |
+		   -------------------------
+	44	   |       5551313         |
+		   -------------------------
+	40	A: |       5551212         |
+		   -------------------------
+	36     cp: |          18           |
+		   -------------------------
+	32	   |  1  |  9  |  \0 |  ?  |
+		   -------------------------
+	28	   |  i  |  z  |  e  |     |
+		   -------------------------
+	24	   |  8  |  ,  |     |  s  |
+		   -------------------------
+	20	   |  e  |  n  |     |  1  |
+		   -------------------------
+	16    str: |  s  |  t  |  \0 |  l  |
+		   -------------------------
+	12     ip: |                       |
+		   -------------------------
+	8	c: |                       |
+		   -------------------------
+	4	b: |                       |
+		   -------------------------
+	0	a: |                       |
+		   -------------------------
+</pre>
+
+If we were to do a <i>strlen</i>(<i>str</i>), we would get the value 2, because there
+are now only two bytes in the string before we hit a null-terminator.
+However, the rest of the string did not go away; it is still there, occupying space.
+<p>
+Speaking of the rest of the data sitting there, occupying space, what is
+the '?' character at memory location 35?
+<p>
+It is an unknown.
+The compiler typically allocates space in units of 4 bytes (the fundamental
+unit in the 32-bit machine: 32 bits).
+Since our string only required 19 bytes, we had a little space left over,
+and the compiler DID NOT want to start the next item (the character pointer)
+at an odd address.
+So the compiler wastes the space in between the end of the string and the 
+beginning of the character pointer, hoping that you will never go looking
+for it, or accidentally use it.
+It might contain the value '\0' but it could just as well contain the value 'Z'
+or (more likely) something outside the ASCII range, like 129 or 231 or 17.
+You cannot count on this value, but you can generally count on the space being there.
+
+<p>
+
+<ul>
+<b>Diversion:</b>
+Here is an important distinction between character arrays and character pointers.
+Suppose we have the following:
+<pre>
+	char str1[] = "strlen 18, size 19";
+	char *str2  = "strlen 17, size 4";
+</pre>
+This appears in memory as the following:
+<pre>
+	   -------------------------
+     str2: |                       | --------------> "strlen 17, size 4"
+	   -------------------------
+	   |  1  |  9  |  \0 |  ?  |
+	   -------------------------
+	   |  i  |  z  |  e  |     |
+	   -------------------------
+	   |  8  |  ,  |     |  s  |
+	   -------------------------
+	   |  e  |  n  |     |  1  |
+	   -------------------------
+     str1: |  s  |  t  |  r  |  l  |
+	   -------------------------
+</pre>
+The first string, <i>str1</i>, is a character array, and space is allocated for it.
+When you declare an array you must explicitly state how large it is, or implicitly
+state how large it is by giving it an initial value.
+Note that the size will never change.
+<p>
+The second string, <i>str2</i> is a pointer to a character and space is allocated for it,
+but the space allocated is enough to hold a <i>pointer</i>, not the entire <i>array</i>.
+The actual array contents (the string  "strlen 17, size 4") is placed in an entirely
+different area of memory and the pointer <i>str2</i> merely references the string.
+Note that if you ever do something like this:
+<pre>
+	str2 = str1;
+</pre>
+you will effectively lose the original contents of <i>str2</i>:
+<pre>
+	   -------------------------
+     str2: |                       | ---|            "strlen 17, size 4"
+	   -------------------------    |
+	   |  1  |  9  |  \0 |  ?  |    |
+	   -------------------------    |
+	   |  i  |  z  |  e  |     |    |
+	   -------------------------    |
+	   |  8  |  ,  |     |  s  |    |
+	   -------------------------    |
+	   |  e  |  n  |     |  1  |    |
+	   -------------------------    |
+     str1: |  s  |  t  |  r  |  l  |    |
+	   -------------------------    |
+              ^                         |
+	      |-------------------------|
+</pre>
+<i>Str2</i> now points to the beginning of <i>str1</i> and nothing
+points to the string "strlen 17, size 4" anymore -- it is lost.
+<p>
+So -- try the following program.
+What does it do and why?
+<pre>
+	#include &lt;stdio.h&gt;
+	main()
+	{
+	    int a;
+	    char s1[] = "this is a very large string that should take up much space";
+	    int b;
+	    char *s2  = "another very large string that should take up much space";
+	    int c;
+	    
+	    printf("loc  a: %d \n", &a);
+	    printf("loc s1: %d \n", &s1);
+	    printf("loc  b: %d \n", &b);
+	    printf("loc s2: %d \n", &s2);
+	    printf("loc  c: %d \n", &c);
+	}
+</pre>
+<p>
+End of diversion.
+</ul>
+
+After the character pointer comes an integer array <i>A</i>.
+It has two elements, 5551212 and 5551313.
+Let us look at a variant of earlier code:
+<pre>
+	ip = A;
+	ip++;
+	ip = ip + 1;
+	*ip = 0;
+</pre>
+The first line points <i>ip</i> to the array <i>A</i>; at this point, the variable
+<i>ip</i> contains the value 40.
+The second line increments the pointer to the next integer, not the next byte.
+At this point, <i>ip</i> does <i>not</i> point to storage location 41;
+it points to storage location 44.
+Why?
+Because the compiler is smart enough to translate the following lines
+of C code differently:
+<pre>
+	char *cp=0;
+	int *ip=0;
+
+	cp++		=>	cp = cp + 1
+	ip++		=>	ip = ip + 4
+</pre>
+Similarly, double-precision floating point numbers (data type <tt>double</tt>) occupy
+8 bytes of storage each, therefore we have the following:
+<pre>
+	double *dp=0;
+	dp++		=>	dp = dp + 8
+</pre>
+Another thing: why does the following statement not
+assign a zero to the character that <i>cp</i> points to?
+<pre>
+	char *cp=0;
+</pre>
+The answer is that it is an initialization statement and as such initializes
+the variable (<i>cp</i>), not the value that the variable points to.
+So at initialization, the pointer points to memory location 0 (also referred to as NULL).
+<p>
+Back to the story-line.
+We have just incremented integer-pointer <i>ip</i>.
+At this point, <i>ip</i> does <i>not</i> point to storage location 41;
+it points to storage location 44.
+Let's say we increment it again.
+It now points to storage location 48 (which, by the way, is OUTSIDE of array A).
+We now assign 0 to the storage location referenced by pointer ip:
+<pre>
+	*ip = 0;
+</pre>
+This puts a zero into the first half of the double-precision floating-point 
+number <i>f</i> (and would cause quite a bug).
+
+<pre>
+   starting addr    <-- 32-bit quantity -->
+		   -------------------------
+	52	   |                       |
+		   -------------------------
+	48	f: |          0            |
+		   -------------------------
+	44	   |       5551313         |
+		   -------------------------
+	40	A: |       5551212         |
+		   -------------------------
+	36     cp: |          18           |
+		   -------------------------
+	32	   |  1  |  9  |  \0 |  ?  |
+		   -------------------------
+	28	   |  i  |  z  |  e  |     |
+		   -------------------------
+	24	   |  8  |  ,  |     |  s  |
+		   -------------------------
+	20	   |  e  |  n  |     |  1  |
+		   -------------------------
+	16    str: |  s  |  t  |  \0 |  l  |
+		   -------------------------
+	12     ip: |          48           |
+		   -------------------------
+	8	c: |                       |
+		   -------------------------
+	4	b: |                       |
+		   -------------------------
+	0	a: |                       |
+		   -------------------------
+</pre>
+
+This has gotten into the area of pointers, so we will move on and
+talk about pointers in more depth in a bit.
+
+<p>
+<strong><font size=+1>Registers vs. Memory</font></strong>
+</p>
+
+Now you know what your C variables look like as they are stored in memory.
+One question to ask is "how does the machine operate on my variables?"
+In a <i>load-store</i> machine (one in which you must explicitly bring a
+value from memory into a register before you may operate on it), you cannot
+directly do things like this:
+<pre>
+	a = b + c
+</pre>
+where <i>a</i>, <i>b</i>, and <i>c</i> are memory locations.
+<p>
+You must instead move the values into registers, operate on them, and
+then WRITE THEM BACK to memory (if their value has changed).
+The above code would translate to the following RiSC assembly code:
+<pre>
+	lw	1, 0, b
+	lw	2, 0, c
+	add	1, 1, 2
+	sw	1, 0, a
+</pre>
+The first two instructions load the values of variables <i>b</i> and <i>c</i> into registers 1 and 2.
+The third instruction adds the two values together.
+Note that since memory has not changed, none of the variables have changed.
+The fourth instruction changes memory (by writing a value out to memory location <i>a</i>)
+and therefore changes the variable.
+<ul>
+<b>Important distinction: <i>if you have not changed memory, you have not 
+altered the variable</i></b>.
+</ul>
+This is because variables in C are located in memory.
+However, to operate on them, we must first bring them into registers; but this only
+brings in a <i>copy</i> of the variable, not the actual variable itself.
+In order to modify the actual variable, it requires a <i>store</i> instruction.
+There is one exception: C allows things called "register variables" that are simply
+variables that do not live in memory (and are thus much faster, but not permanent).
+I will not discuss them further in this document; if you want to know more, ask me about them.
+
+<p>
+<strong><font size=+1>How Functions Work</font></strong>
+</p>
+
+Functions in C work on the property of <i>call-by-value</i>, which means that
+if you send variables into a function, the <i>values</i> of those variables
+are copied into the local working-space of the function (its <i>stack frame</i>).
+The function does not have direct access to those variables.
+Suppose we have the following, where the function <i>function</i> manipulates
+its input in some way:
+<pre>
+	int a, b, c;
+
+	a = 1;
+	b = 2;
+	c = 3;
+	function(a, b, c);
+	    /*
+	     * function does the following:
+	     * a++;
+	     * b++;
+	     * c++;
+	     * return;
+	     */
+	printf("a=%d, b=%d, c=%d \n", a, b, c);
+</pre>
+What happens in this program?
+Even though the values of <i>a</i>, <i>b</i>, and <i>c</i> are overwritten inside the function, they
+are only overwritten there; the function has its own work-area that is not visible
+to the rest of the program, and similarly the rest of the program is not visible
+to the function.
+Therefore, any changes that the function makes are local only; the changes disappear
+when the function returns.
+When the <tt>printf</tt> runs, the values of <i>a</i>, <i>b</i>, and <i>c</i> are still 1, 2, and 3.
+<p>
+Now, there might be times when we <b>want</b> a function to be able to influence
+variables outside of its scope.
+For instance, say we want a function such as <i>increment</i>, which takes a set
+of integer values and increments all of them.
+The following program would not work:
+<pre>
+	int a, b, c;
+
+	a = 1;
+	b = 2;
+	c = 3;
+
+	increment(a, b, c);
+</pre>
+It would not work because the function <i>increment</i> only sees the <i>values</i>
+of the arguments; it does not have direct access to the variables themselves.
+<p>
+We can get around this by understanding how storage is allocated in C, and by using pointers.
+The C operator & means "address-of" ... when you attach it to a variable, the
+whole expression is interpreted by the compiler to be the address of the variable,
+NOT the value of the variable.
+This way, rather than sending values of variables into the increment function, we can
+send addresses, effectively telling the function where the real variables reside:
+<pre>
+	int a, b, c;
+
+	a = 1;
+	b = 2;
+	c = 3;
+
+	increment(&a, &b, &c);
+</pre>
+The increment function would NOT look like this:
+<pre>
+	void
+	increment(int a, int b, int c)
+	{
+	    a = a + 1;
+	    b = b + 1;
+	    c = c + 1;
+	    return;
+	}
+</pre>
+This would not work because the function as written expects <i>a</i>, <i>b</i>, and <i>c</i>
+to be integers, not pointers to integers.
+The following would also NOT work:
+<pre>
+	void
+	increment(int *a, int *b, int *c)
+	{
+	    a = a + 1;
+	    b = b + 1;
+	    c = c + 1;
+	    return;
+	}
+</pre>
+This fails because the increment statements effectively say "increment the value of <i>a</i>,
+which is a pointer to an integer".
+This merely re-directs each of the local pointers to point somewhere other than the variables
+<i>a</i>, <i>b</i>, and <i>c</i>.
+It would not affect anything outside the function.
+However, this WOULD work:
+<pre>
+	void
+	increment(int *a, int *b, int *c)
+	{
+	    *a = *a + 1;
+	    *b = *b + 1;
+	    *c = *c + 1;
+	    return;
+	}
+</pre>
+Why does this work?
+Because the statements each effectively say "increment the thing that <i>a</i> is pointing to, which 
+is an integer".
+<p>
+The difference (a is declared as <tt>int *a</tt>):
+<ul>
+    <li> a is an int *
+    <li> *a is an int
+</ul>
+It all depends on where you draw the line:
+<pre>
+	int *  |   a		=> a is an int-pointer
+	int    |  *a		=> *a is an int ... the one referenced by pointer a
+</pre>
+
+Note that whereas the following two do the same thing:
+<pre>
+	a = a + 1;
+	a++;
+</pre>
+the following two DO NOT do the same thing:
+<pre>
+	*a = *a + 1;
+	*a++;
+</pre>
+
+The problem arises because in the second group of C statements, we mix
+two operations in one expression.
+When we combine the de-reference operator (the * operator) with the increment
+operator (the ++ operator) we get unusual behavior.
+The first line:
+<pre>
+	*a = *a + 1;
+</pre>
+says to get the contents of the data item that <i>a</i> points to, add 1 to it,
+and write the value back to data item that <i>a</i> points to.
+The second line:
+<pre>
+	*a++;
+</pre>
+says to get the contents of the data item that <i>a</i> points to, and then
+increment the pointer <i>a</i>.
+The value that <i>a</i> points to is not changed: the pointer <i>a</i> is changed.
+If you want something with the semantics of the first C statement, I think the 
+following would work:
+<pre>
+	(*a)++;
+</pre>
+The parentheses override the precedence-ordering of the operators.
+
+<p>
+
+Again, we have strayed a bit far into pointers.
+Moving on ...
+
+<p>
+<strong><font size=+1>Stack vs. Heap, or <i>Automatic</i> vs. <i>Static</i> Variables</font></strong>
+</p>
+
+When functions run, they are allocated temporary storage on the <i>stack</i>.
+This storage is effectively destroyed/consumed/garbage-collected as soon as the
+function stops running.
+Therefore the following is an error:
+<pre>
+	char *
+	readline()
+	{
+	    char line[128];
+	    gets(line)
+	    return line;
+	}
+</pre>
+It is an error because all of the variables belonging to a function
+(except those declared "static" -- I will get to that in a moment) are
+destroyed as soon as the function exits.
+The big problem is that they are not destroyed immediately, so your
+program may run just fine for a little while before it goes haywire.
+This makes debugging a pain.
+<p>
+Anyway -- the variables declared inside a function (i.e. all those that
+are not global) are allocated on the stack, as part of the function's
+stack frame.
+This stack frame is wiped out once the function exits.
+All of the variables go away when the stack frame is wiped out.
+They are called "automatic" variables because they are automatically created
+and destroyed by simply calling and returning from the function.
+Therefore, <i>line</i> gets destroyed, and you will get strange behavior
+if your program is pointing to where <i>line</i> used to be -- for example,
+if you had said something like the following:
+<pre>
+	char *cp = readline();
+</pre>
+At this point, <i>cp</i> is not valid because the program <i>readline</i> has
+exited, taking with it all of its automatic variables, including <i>line</i>,
+which is what the variable <i>cp</i> is now pointing at.
+It is pointing at some random location on the stack, which might get overwritten
+at any moment (for example, as soon as another function executes).
+<p>
+How to get around this?
+<p>
+There are two ways around this: GLOBAL variables and STATIC variables.
+GLOBALS are simply variables that are (for example) declared at the top
+of the program file, outside of any surrounding <i>block</i> (set of curly-braces).
+These are variables that are visible to every single function in the program;
+remember last section when I said that there is no way to change variables
+that are outside a function from <i>within</i> the function?
+If the variable is a global (and if the function does not locally declare
+one of the same name), then the function CAN change it.
+<p>
+For example, the following is a program where the function <i>setA</i>
+can see outside its own scope.
+<pre>
+	int A = 0;
+	
+	void setA(value)
+	int value;
+	{
+	    A = value;
+	}
+
+	main()
+	{
+	    setA( 0xbabacafe );
+	}
+</pre>
+The variable <i>A</i> is global, and the function <i>setA</i> can access it.
+However, the following example <i>shadows</i> the global variable <i>A</i>:
+<pre>
+        int A = 0;
+
+        void setA(value)
+        int value;
+        {
+            int A = value;
+        }
+
+        main()
+        {
+            setA( 0xbabacafe );
+        }
+</pre>
+Here, there is a locally-defined variable called <i>A</i>.
+This local variable takes precedence over the global variable;
+the net result is that <i>setA</i> cannot reference the global variable.
+And the value that it saves in the integer <i>A</i> is lost as soon as
+the function exits.
+<p>
+The other way to avoid having your variables destroyed is to
+explicitly allocate space for them.
+If you precede a variable declaration by the word "static" then the variable
+will NOT be placed on the stack but will instead be placed on the heap with
+all of the global variables.
+The advantage is that only the function in which the variable was declared
+has access to it.
+<pre>
+        int A = 0;
+
+        void setA(value)
+        int value;
+        {
+            static int A = value;
+        }
+
+        main()
+        {
+            setA( 0xbabacafe );
+	    A = 0xbabacafe;
+	    A++;
+        }
+</pre>
+There are two variables named "A" ... one is global, one is local
+to the function <i>setA</i>, but the one local to <i>setA</i> is not destroyed 
+when the function stops executing.
+The <tt>A = 0xbabacafe</tt> assignment statement in the main() function does
+NOT reproduce work done by the function <i>setA</i>.
+At the point it executes, the global <i>A</i> still has the value 0, and the
+variable <i>A</i> that is local to <i>setA</i> has the value 0xbabacafe.
+Note that this change is permanent and the storage location is not
+destroyed at the end of function <i>setA</i>, because <i>A</i> is declared as static.
+The next time <i>setA</i> is called, the local variable <i>A</i> will still have the
+value 0xbabacafe, and the global variable <i>A</i> will have the value 0xbabacaff.
+<p>
+This feature is good for things like keeping a count of how many
+times a function is called; in particular, you will often want to
+do something different the first time a function is called, as opposed
+to the second, third, or tenth time the function is called.
+You can do this by the following:
+<pre>
+	void
+	function()
+	{
+	    static int count=0;
+
+	    count++;
+	    if (count == 1) {
+		/* do initialization steps */
+	    }
+	    /* on with the code */
+	}
+</pre>
+The initialization of the variable <i>count</i> is only done once,
+not on every execution of the function (as would be the case if the word
+<tt>static</tt> were not there).
+Therefore on the first execution, the value is zero, incremented to one.
+On the second execution of the function, the value of <i>count</i> is one
+and is incremented to two, etc.
+
+<p>
+<strong><font size=+1>Arrays, Structures, and Pointers</font></strong>
+</p>
+
+C has these things called <i>arrays</i>, which we have been discussing
+for a bit now; they are groups of similar data items, and the
+first item is item-0, the second is item-1, etc.
+The C compiler is smart enough to address the items in the array
+correctly, therefore the following is actually a bit more complex
+than it first appears.
+<pre>
+	char   C[10];
+	int    I[10];
+	double F[10];
+
+	char   c = C[3];
+	int    i = I[3];
+	double f = F[3];
+</pre>
+We are simply grabbing data out of the arrays, and we are grabbing
+the same element-number from each array (item-3, the fourth item).
+A character is 1 byte wide, an int (let us suppose) is 4 bytes, and
+a double-precision floating-point number is 8 bytes wide.
+Therefore these three assignment statements result in the following
+low-level operations:
+<pre>
+	c <- MEM[ C + 3 ]
+	i <- MEM[ I + 3 * 4 ]
+	f <- MEM[ F + 3 * 8 ]
+</pre>
+One nice thing about arrays in C is that it is relatively simple
+to create multi-dimensional arrays, which is very important
+if you want arrays of strings (each of which is a character array).
+So, if you want to create an array of strings, you can do the
+following:
+<pre>
+	#define MAX_STRLEN 15
+	char labelarray[128][MAX_STRLEN+1];
+</pre>
+This creates an array containing 128 strings, each of which has 16 bytes in it.
+You can easily use this as follows:
+<pre>
+	int i;
+	for (i=0; i&lt;MAX_LABELS; i++) {
+	    char *label = get_string();
+	    strncpy(labelarray[i], label, MAX_STRLEN);
+	}
+</pre>
+This is obviously a contrived example, but it illustrates the point; you can
+get strings, even from automatic storage, and copy them into global storage
+locations to keep the data for the duration of the program.
+If you do not copy the data somewhere, it is likely to disappear on you.
+For instance, the function <i>get_string</i> likely has an internal buffer that it reads
+data into (the array should be declated as static to avoid it being wiped out at function exit).  
+Every time the function is called, presumably the function gets a new string from 
+the input data source, and the previous string is wiped out.
+The above code segment would "save" all interesting lines into <i>labelarray</i>,
+so that when you are done reading from the input-source, the lines are still around.
+<p>
+
+Similar to arrays are structures, designated by the keyword <tt>struct</tt>.
+These are declared like this:
+<pre>
+	struct student {
+	    char fname[32];
+	    char lname[32];
+	    int height;
+	    int weight;
+	    float gpa;
+	};
+</pre>
+A structure is like an array in that it is a complex aggregate of data
+types; the primary difference is that it is a set of (potentially)
+different data types, whereas an array is a set of identical data types.
+Here is how you refer to the elements of an array:
+<pre>
+	int array[] = { 5551212, 5551313 };
+	int a = array[0];    /* refers to the first item in the array: 5551212 */
+	int b = array[1];    /* refers to the second item in the array: 5551313 */
+	int c = array[2];    /* indexes beyond the end of the array: a bug */
+</pre>
+Since each item in the array has the same size (they are required to be 
+identical data types), it is simple to find different elements.
+A structure, however, is composed of (potentially) different data types
+with (potentially) different sizes, so it is much more difficult to determine
+how to find things in it.
+Also, if one were to use the same sort of indexing method as in arrays, it
+would lead to things like the following (<i>note this is NOT correct C syntax</i>):
+<pre>
+	struct student {
+	    char fname[32];
+	    char lname[32];
+	    int height;
+	    int weight;
+	    float gpa;
+	} s;
+
+	strcpy(s[0], "Bob");
+	strcpy(s[1], "Jones");
+	s[3] = 70;
+	s[4] = 160;
+	s[5] = 3.675;
+</pre>
+This is not very useful; it is difficult to know exactly what is going on.
+Instead of this, C uses a much better method for locating fields 
+within structures:
+<pre>
+	struct student {
+	    char fname[32];
+	    char lname[32];
+	    int height;
+	    int weight;
+	    float gpa;
+	} s;
+
+	strcpy(s.fname, "Bob");
+	strcpy(s.lname, "Jones");
+	s.height = 70;
+	s.weight = 160;
+	s.gpa = 3.675;
+</pre>
+This is a much better method, as it is simple to tell what data is going where.
+<p>
+Here comes the point of pointers.
+When you wish to pass an aggregate data type into a function (i.e.  pass
+an array or a structure into a function), you typically do not want to copy
+the ENTIRE array or structure into the work-area of the function.
+Remember a few sections back when we saw that functions had their own work-areas,
+and arguments are passed to functions via <i>call-by-value</i>?
+This means that when you pass an argument to a function, the compiler sets it up so
+that the data item is copied into the work-area (the stack frame) of the function.
+<p>
+What if one of the arguments is a 1,000,000-entry integer array?
+What if one of the arguments is a struct with 10,000 different
+data fields within it, totalling many dozens of kilobytes?
+<p>
+In the cases of aggregate data types, we typically DO NOT want to use
+call-by-value when invoking functions, because doing so would entail
+copying many kilobytes or perhaps even megabytes of data, much of which
+might not be needed or even used.
+Instead of copying all of that data, we typically leave the data where it is
+and tell the function where to find the data structure.
+<p>
+We use pointers.
+<p>
+Remember the & (address-of) operator?
+This is where it comes in very handy.
+If you have a function <i>print_gpa</i> that takes as an argument a structure, 
+you have two choices.
+First, you can elect to copy the entire struct into <i>print_gpa</i>:
+<pre>
+	struct student {
+	    char fname[32];
+	    char lname[32];
+	    int height;
+	    int weight;
+	    float gpa;
+	} s;
+
+	int print_gpa(s)
+	struct student s;
+	{
+	    printf("%s, %s: GPA %f\n", s.lname, s.fname, s.gpa);
+	}
+
+	main()
+	{
+	    struct student stdnt;
+
+	    strcpy(stdnt.fname, "Bob");
+	    strcpy(stdnt.lname, "Jones");
+	    stdnt.height = 70;
+	    stdnt.weight = 160;
+	    stdnt.gpa = 3.675;
+
+	    print_gpa(stdnt);
+	}
+</pre>
+This would copy everything from the variable <i>stdnt</i> into the stack frame
+of the function <i>print_gpa</i> before executing the function.
+Of course, some compilers do not allow this, or they change it to something
+else under your nose.
+At any rate, here is the alternative, which is used MUCH more frequently:
+<pre>
+	int initialize(s, first, last, ht, wt, gpa)
+	struct student *s;
+	char *first, *last;
+	int ht, wt;
+	float gpa;
+	{
+	    strcpy(s->fname, first);
+            strcpy(s->lname, last);
+            s->height = ht;
+            s->weight = wt;
+            s->gpa = gpa;
+	    return; 
+	}
+
+	int print_gpa(s)
+	struct student *s;
+	{
+	    printf("%s, %s: GPA %f\n", s->lname, s->fname, s->gpa);
+	}
+
+	main()
+	{
+	    struct student stdnt;
+
+	    initialize(&stdnt, "Bob", "Jones", 70, 160, 3.675);
+
+	    print_gpa(&stdnt);
+	}
+</pre>
+Okay, what is going on here?
+Rather than send copies of the actual student record around, we sent a pointer
+to the student record (the <tt>struct student stdnt</tt>).
+This allows the two functions <i>initialize</i> and <i>print_gpa</i> to access
+the true data, not just a copy of it.
+While this is not so important for the <i>print_gpa</i> function (it is only reading the data),
+this is very important for the <i>initialize</i> function, since its changes would otherwise
+not be seen.
+<p>
+So what are all the "->" things?
+When you de-reference a pointer (when you place an asterisk in front of a variable
+that is declared to be a pointer to a certain data type), the resulting term becomes
+equivalent to the thing pointed to.
+Therefore the terms <i>stdnt</i> and <i>(*s)</i> are equivalent:
+<pre>
+	struct student stdnt;		/* allocates space for a structure */
+	struct student s = &stdnt;	/* allocates space for a 4-byte pointer
+					    and initializes it to point at stdnt */
+	strcpy(stdnt.fname, "Brockton");
+	strcpy((*s).lname, "Veendorp");
+</pre>
+When you de-reference pointer <i>s</i>, the resulting term is equivalent to the
+thing pointed to: <i>stdnt</i>.
+Therefore the last two lines initialize values in the same structure.
+Note that the parentheses surrounding the *s combination are necessary,
+due to precedence of operators in C.
+So a short-hand notation was developed, because typing so many
+parentheses and asterisks is painful to do and painful to look at:
+<pre>
+	(*s).fname      is equivalent to      s->fname
+	(*s).lname      is equivalent to      s->lname
+	(*s).height     is equivalent to      s->height
+	etc ...
+</pre>
+Much nicer, huh?
+<p>
+There are many really good uses for pointers to structures, especially in the
+area of linked lists, but I will not talk about them here because the area is
+pretty huge and you will probably not require dynamic data structures to build
+the types of things you will build in this class.
+Ask me about it at office hours if you want.
+<p>
+However, I WILL talk about the use of pointers when you have arrays of structures.
+This is very very useful.
+Say you have an array of structures, each of which represents a particular
+label-address mapping:
+<pre>
+	struct label {
+	    char label[ MAX_LABEL_LEN + 1 ];
+	    int  address;
+	} labelarray[ MAX_LABELS ];
+</pre>
+This is pretty simple; what we have is a structure that pairs a string
+to hold the label with an integer to hold the address.
+Suppose that this declaration is global; i.e. it is found near the top of
+the file, before the functions get defined.
+Then the following is a perfectly good <i>label_lookup</i> function:
+<pre>
+	int
+	label_lookup(label, max)
+	char *label;
+	int max;
+	{
+	    struct label *lp = labelarray;
+	    /* with some compilers you may need to say:
+	       struct label *lp = &labelarray[0]; */
+
+	    while (max-- > 0) {
+		if (strcmp(label, lp->label) == 0) {
+		    return lp->address;
+		}
+		lp++;
+	    }
+	    return -1;
+	}
+</pre>
+The function has a label pointer <i>lp</i> that it uses to sweep through the
+<i>labelarray</i>.
+For each element in the array, we compare the desired label (<i>label</i>, the input
+argument to the function) to the value found in the structure (<i>lp->label</i>).
+If the two are equal (if <i>strcmp</i> returns zero), we return the corresponding
+address value.
+If we get to the end (by exceeding <i>max</i>) without finding the desired label,
+we return negative one--a value that no valid label should have; this indicates to
+the function's callee that the label has not been found.
+
+<p>
+<strong><font size=+1>Pointers to Pointers</font></strong>
+</p>
+
+Sometimes you will see things like <tt>char **arg1</tt>, in which there are
+pointers to pointers.
+Remember the earlier example of passing pointers to variables into
+functions so that the functions could modify the variables directly? 
+For instance, the <i>initialize</i> function:
+<pre>
+	int initialize(s, first, last, ht, wt, gpa)
+	struct student *s;
+	char *first, *last;
+	int ht, wt;
+	float gpa;
+	{
+	    strcpy(s->fname, first);
+            strcpy(s->lname, last);
+            s->height = ht;
+            s->weight = wt;
+            s->gpa = gpa;
+	    return; 
+	}
+</pre>
+This function takes as input a pointer to a structure and a whole bunch
+of values with which we are to initialize the structure.
+Since the function is given a <i>pointer to</i> the structure (rather than a
+<i>copy of</i> the structure), it can make changes directly to the structure.
+<p>
+This extends beyond structures.
+For example, it is very useful for initializing pointers.
+Say, for example, that we have the following pointers:
+<i>label</i>, <i>opcode</i>, <i>arg1</i>, <i>arg2</i>, and <i>arg3</i>.
+We also have a buffer full of data that contains the following 
+assembly-code line:
+<pre>
+	loop:	lw 1, 2, Foo
+</pre>
+We want to give the pointer <i>label</i> a pointer to the string "loop:".
+We want to give the pointer <i>opcode</i> a pointer to the string "lw".
+We want to give the pointer <i>arg1</i> a pointer to the string "1".
+Et cetera.
+One obvious way to do this is to create an equivalent function to the
+previous <i>initialize</i>--we'll call it <i>parse_and_assign_values</i>:
+<pre>
+	void
+	parse_and_assign_values(input, lab_ptr, op_ptr, a1_ptr, a2_ptr, a3_ptr)
+	char *input;
+	char **lab_ptr, **op_ptr, **a1_ptr, **a2_ptr, **a3_ptr;
+	{
+	    char *cp;
+
+	    cp = get_first_field_of_input(input);
+	    if (cp == NULL) {
+		*lab_ptr = NULL;
+	    } else {
+		*lab_ptr = cp;
+	    }
+
+	    cp = get_next_field_of_input(input);
+	    if (cp == NULL) {
+		*op_ptr = NULL;
+	    } else {
+		*op_ptr = cp;
+	    }
+
+	    cp = get_next_field_of_input(input);
+	    if (cp == NULL) {
+		*a1_ptr = NULL;
+	    } else {
+		*a1_ptr = cp;
+	    }
+
+	    etc ...
+
+	}
+
+	main()
+	{
+	    char *label;
+	    char *opcode;
+	    char *arg1;
+	    char *arg2;
+	    char *arg3;
+	    char line[128];
+
+	    gets(line);
+	    parse_and_assign_values(line, &label, &opcode, &arg1, &arg2, &arg3);
+
+	    /* now, each of the char pointers points to NULL or to a valid string */
+	}
+</pre>
+This example uses these pointer-pointer data types.
+In our main function, we have character pointers that we use to manipulate strings.
+At times, we will want to call a function that initializes these pointers.
+To allow the function direct access to the pointers, we have to give the function
+the <i>address</i> of the pointers, not a <i>copy</i> of the pointers.
+Therefore, the function sees arguments that are addresses of pointers, or
+pointers to pointers.
+The notation in C is **.
+<p>
+One obvious question: what does the function <i>get_next_field_of_input</i> look like?
+We will get to that in the next section on string manipulation.
+
+<p>
+<strong><font size=+1>String Manipulation</font></strong>
+</p>
+
+In the previous example, we have a buffer called <i>line</i> that contained 
+a line from an assembly-code program that looks like this:
+<pre>
+	loop:	lw 1, 2, Foo
+</pre>
+
+This happens to be a string containing the following data (underneath
+the data, I have shown the index of each byte within the string):
+<pre>
+	-------------------------------------------------------------------------------
+	| l | o | o | p | : | \t | l | w |   | 1 | , |   | 2 | , |   | F | o | o | \0 |
+	-------------------------------------------------------------------------------
+	  0   1   2   3   4    5   6   7   8   9   10  11  12  13  14  15  16  17  18
+</pre>
+The first character in the buffer (another word for data array, in this
+example a character array) is the character 'l', the second character
+is 'o', etc.
+The very last character is the NULL character, '\0'.
+And spaced between each of the components of the line of assembly code
+are separating tabs [\t], commas [,], and/or spaces [ ].
+<p>
+Here is what we could do to pull the data out of the buffer (note it is a little simplified
+for the sake of readability):
+<pre>
+	1.  if the first character is '\t' then LABEL is NULL, advance to next character
+	    otherwise, LABEL = this-address, move to next space (' '), replace it with '\0',
+	    and replace every following space with '\0' until we hit a non-space character
+
+	2.  OPCODE = this-address, move to next space (' '), replace with '\0',
+	    and replace every following space with '\0' until we hit a non-space character
+
+	3.  ARG1 = this-address, move to next comma (',') or space (' '), replace with '\0',
+	    and replace every following space with '\0' until we hit a non-space character
+
+	4.  ARG2 = this-address, move to next comma (',') or space (' '), replace with '\0',
+	    and replace every following space with '\0' until we hit a non-space character
+
+	4.  ARG3 = this-address, move to next comma (',') or space (' '), replace with '\0',
+	    and replace every following space with '\0' until we hit a non-space character
+</pre>
+Here is a graphical depiction of what happens.
+This is how we start out:
+<pre>
+	-------------------------------------------------------------------------------
+	| l | o | o | p | : | \t | l | w |   | 1 | , |   | 2 | , |   | F | o | o | \0 |
+	-------------------------------------------------------------------------------
+	  0   1   2   3   4    5   6   7   8   9   10  11  12  13  14  15  16  17  18
+
+	current-char: line[0]
+
+	LABEL = NULL
+	OPCODE = NULL
+	ARG1 = NULL
+	ARG2 = NULL
+	ARG3 = NULL
+</pre>
+Step 1 looks to see if there is a valid LABEL field.
+If the first character is a TAB, then there is no LABEL field.
+In this case, there is a valid character (the 'l' character),
+therefore there is a valid LABEL field (<i>loop</i>).
+So we point LABEL at location 0 and terminate the string "loop:" with a NULL character:
+<pre>
+	-------------------------------------------------------------------------------
+	| l | o | o | p | : | \0 | l | w |   | 1 | , |   | 2 | , |   | F | o | o | \0 |
+	-------------------------------------------------------------------------------
+	  0   1   2   3   4    5   6   7   8   9   10  11  12  13  14  15  16  17  18
+
+	current-char: line[6]
+
+	LABEL = 0
+	OPCODE = NULL
+	ARG1 = NULL
+	ARG2 = NULL
+	ARG3 = NULL
+</pre>
+Now we are looking at location 6, LABEL has been assigned, and since the
+character in position 5 has been replaced with a NULL terminator (the '\0' character),
+LABEL points to a string that has 5 characters.
+In Step 2, we do the same kind of thing: we test the first character to 
+see if it is the end of the line, and we set OPCODE to NULL if it is.
+Assuming it is not, we set OPCODE to <i>current-char</i> and find the next SPACE in line,
+setting it to '\0'.
+This gives us the following:
+<pre>
+	--------------------------------------------------------------------------------
+	| l | o | o | p | : | \0 | l | w | \0 | 1 | , |   | 2 | , |   | F | o | o | \0 |
+	--------------------------------------------------------------------------------
+	  0   1   2   3   4    5   6   7    8   9   10  11  12  13  14  15  16  17  18
+
+	current-char: line[9]
+
+	LABEL = 0
+	OPCODE = 6
+	ARG1 = NULL
+	ARG2 = NULL
+	ARG3 = NULL
+</pre>
+Now, OPCODE points to location 6, which is the start of the string "lw".
+It is a string with only two characters, since we just replaced the SPACE
+character in position 8 with a NULL-terminator.
+<p>
+And the process continues until we have the following:
+<pre>
+	------------------------------------------------------------------------------------
+	| l | o | o | p | : | \0 | l | w | \0 | 1 | \0 | \0 | 2 | \0 | \0 | F | o | o | \0 |
+	------------------------------------------------------------------------------------
+	  0   1   2   3   4    5   6   7    8   9   10   11   12  13   14   15  16  17  18
+
+	current-char: line[19]
+
+	LABEL = 0
+	OPCODE = 6
+	ARG1 = 9
+	ARG2 = 12
+	ARG3 = 15
+</pre>
+Now, this would make pretty ugly code.
+Luckily, you don't have to do this kind of thing; it has already been done for you.
+Check out the library function <i>strtok</i>--it was written to do exactly this
+type of string parsing.
+I will not explain how it is used (you can get that from any C manual), but the way
+it works is VERY SIMILAR to what I have described here.
+
+<p>
+<strong><font size=+1>Arguments to Programs</font></strong>
+</p>
+
+Okay, this section will be very short, since I have been typing all day and
+my hands are tired.
+How do you get things into programs?
+When you type the following at the UNIX command line:
+<pre>
+	wam.umd.edu: assembler mult.s mult.exe
+</pre>
+how do the strings <i>mult.s</i> and <i>mult.exe</i> get into the program?
+Very simple.
+The function <i>main</i> in your program is really a function and it really
+has arguments.
+They are called <i>argc</i> and <i>argv</i> (there is one more, but I won't discuss that right now).
+Here is how they are declared:
+<pre>
+	main(argc, argv)
+	int argc;
+	char *argv[];
+	{
+	}
+</pre>
+<i>Argc</i> is the number of arguments on the command-line (including the name of
+the program itself).
+Therefore, in this example, <i>argc</i> would be 3.
+<i>Argv</i> is an array of character pointers.
+It always has at least one item (argv[0]), because the first item (argv[0]) is always
+the name of the program (therefore <i>argc</i> is always at least 1).
+In this example,
+<pre>
+	argv[0]		refers to the string "assembler"
+	argv[1]		refers to the string "mult.s"
+	argv[2]		refers to the string "mult.exe"
+	argv[3]		does not exist; if you try to reference it, you get garbage
+</pre>
+Voila.
+
+<p>
+<strong><font size=+1>Bitfields and Bitmasks</font></strong>
+</p>
+
+In building your assembler and your simulator for Project 1 (and later
+projects as well), you will often need to look at only a portion of
+an integer -- to pull out a selected group of bits, ignoring all the rest.
+For instance, if you want a 3-bit field in an instruction that identifies
+a register number, you will not want the surrounding bits.
+
+<p>
+
+This is done using <i>bitmasks</i>, or just <i>masks</i>.
+A mask is a field of bits that corresponds to the number of bits that
+you want to pull out of the integer.
+You shift either the instruction or the mask over to the appropriate place and perform an <b>and</b>
+to extract the desired bits; I will demonstrate this in a moment.
+
+<p>
+
+First, here is a table that you can use; it shows a bit pattern and the
+corresponding hexadecimal number that you would use to create the mask.
+
+<pre>
+	#Bits	Bit Pattern	Hexadecimal Number
+	1	1		0x1
+	2	11		0x3
+	3	111		0x7
+	4	1111		0xf
+	5	11111		0x1f
+	6	111111		0x3f
+	7	1111111		0x7f
+	8	11111111	0xff
+	9	111111111	0x1ff
+	10	1111111111	0x3ff
+	11	11111111111	0x7ff
+	12	111111111111	0xfff
+</pre>
+
+... and so on.
+
+<p>
+
+How do you use this?  Very simple.  If you want to extract a
+field from an integer called, for instance, "instruction", and
+place it into the variable "field", you would do the following.
+Say that you want a three-bit field from bit 12 to bit 14, assuming
+that the first bit is bit 0.
+<pre>
+	field = (instruction >> 12) & 0x7;
+</pre>
+This shifts the bits in "instruction" down by 12 bits, then uses
+a mask to zero out everything but the bits in the lowest three
+places (bits 0-2).
+After the shift, bits 12-14 are in locations 0-2, so this is exactly
+what we want.
+<p>
+Bits 8-11:
+<pre>
+	field = (instruction >> 8) & 0xf;
+</pre>
+<p>
+Bits 2-7:
+<pre>
+	field = (instruction >> 2) & 0x3f;
+</pre>
+<p>
+Bits 13-15:
+<pre>
+	field = (instruction >> 13) & 0x7;
+</pre>
+Now, suppose that you want to <b>insert</b> a field into the integer
+called "instruction".
+Let's say that you have an opcode value or a register value or something
+like that held in the variable "field" and you want to put it into the 
+variable "instruction".
+Say that it is a 3-bit quantity and you want it in bits 10-12.
+<pre>
+	instruction = (field & 0x7) << 10;
+</pre>
+The <b>and</b> ensures that "field" contains a 3-bit number (by zeroing
+out any other bits), and the shift puts the three-bit field into place.
+The problem is that the variable "instruction" now contains <i>only</i>
+the three-bit field now in bits 10-12.
+In the general case, we would like to construct instructions out of <i>many</i> fields.
+Here is how.
+<p>
+Suppose we have a 3-bit opcode stored in the variable <i>op</i>,
+we have a 3-bit register stored in the variable <i>r1</i>, and
+we have another 3-bit register stored in the variable <i>r2</i>.
+Say we want them (respectively) in bits 15-13, 12-10, and 9-7.
+We would build up the instruction as follows:
+<pre>
+	instruction = ((op & 0x7) << 13) | ((r1 & 0x7) << 10) | ((r2 & 0x7) << 7);
+</pre>
+The <b>and</b>s ensure that each variable is only three bits wide, 
+by masking out all other bits.
+The <b>left-shift</b>s put the values into place, according to the
+desired location.
+Since there is no overlap between the fields (we have ensured this
+by masking out any possible extra bits), the <b>or</b>s simply 
+concatenate the fields together.
+
+<p>
+
+
+Hope this helps,<br>
+Prof. Jacob
+
+</BODY>
+</HTML>

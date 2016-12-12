@@ -25,13 +25,13 @@ void FIQ_Handler(void) __attribute__((interrupt("FIQ")));
 void
 interrupt_core( unsigned int core )
 {
-	PUT32(INT_SET_BASE + ((core & 0xf) << 4), 0x1);
+	PUT32(INT_SET_BASE + ((core & 0xf) << 4), 0x1);// raise interrupt in mailbox
 }
 
 void
 clear_interrupt( unsigned int core )
 {
-	PUT32(INT_CLR_BASE + ((core & 0xf) << 4), 0xFFFFFFFF);
+	PUT32(INT_CLR_BASE + ((core & 0xf) << 4), 0xFFFFFFFF); // clear interrupt in mailbox
 }
 
 extern void _init_time();

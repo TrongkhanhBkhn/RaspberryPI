@@ -56,8 +56,7 @@ disable_fiq:
     orr r0,r0,#0x40
     msr cpsr_c,r0
     bx lr
-
-
+    
 .globl idle
 idle:
 	wfi

@@ -1,0 +1,437 @@
+<HTML>
+<HEAD>
+
+<TITLE>Thoughts on Debugging</TITLE>
+
+</HEAD>
+
+<body
+   bgcolor="#ffffff"
+   text="#000000"
+   link="#0000ff"
+   alink="#00ffff"
+   vlink="#ff0000"
+>
+
+<p>
+<strong><font size=+1>Thoughts on Debugging C Programs</font></strong>
+</p>
+
+Here are some hints for those of you new to the C programming language.
+These are not elegant solutions to your problems, these are quick & dirty
+ways to find out what is going on.
+Real programmers use symbolic debuggers; they use programs like
+<i>gdb</i>, <i>dbx</i>, and <i>adb</i> to run their applications.
+If you get the chance, learn to use <i>gdb</i>; it is a powerful debugger
+for UNIX systems, but it is not nearly as nice as the windows-based
+graphical debuggers you have used in the Macintosh and Windows environments.
+You will find that debuggers are amazing tools, but when you get into real-world
+programming, you often are trying to debug systems with many different programs that are
+talking to each other over a network or through shared memory, and you cannot
+use a normal debugger at all.
+So, you will often fall back on these ridiculously rudimentary techniques.
+
+<p>
+
+Therefore, I am not going to talk about debuggers here; I will talk about simple,
+quick, easy, incredibly inelegant solutions to many of your problems.
+
+
+<p>
+<strong><font size=+1>Printf</font></strong>
+</p>
+
+First off, you cannot trust <i>printf</i>.
+Generally speaking, by the time the stuff gets printed out on the screen, the 
+program is actually well ahead of the <i>printf</i>.
+This means that say you have the following code:
+<pre>
+	while (something) {
+	    printf("top of loop \n");
+	    func1();
+	    printf("after func1\n");
+	    func2();
+	    printf("after func2\n");
+	}
+</pre>
+The program output always ends after "top of loop" and then prints
+out "Segmentation violation" and dies.
+This leads you believe that the problem is in <i>func1</i>, but for
+the life of you, you cannot find anything wrong in <i>func1</i>.
+The problem is that <i>printf</i> takes its time to print things to the screen,
+so that it only runs when there is a lot of stuff to print -- it queues up
+work to do and then prints out a whole bunch of lines at once.
+Therefore, the problem could very well be in <i>func2</i>, but you were misled
+by trusting <i>printf</i>.
+Here is how to fix it so that you <b>can</b> trust <i>printf</i>:
+<pre>
+	main()
+	{
+	    /* variable declarations */
+
+	    setbuf(stdout, NULL);
+
+	    /* first instruction of the program */
+	}
+</pre>
+Insert the <i>setbuf</i> function call at the beginning of <i>main</i>,
+immediately after your variable declarations.
+This tells the print library to turn off buffering for <i>stdout</i>, which is
+the output stream that <i>printf</i> goes to.
+You can do this for any FILE * if you want: <i>stdout</i>, <i>stderr</i>, or any file that you <i>fopen</i>.
+<p>
+So now, you CAN trust <i>printf</i>; the last thing printed WILL be the last thing successfully executed.
+
+
+<p>
+<strong><font size=+1>__LINE__</font></strong>
+</p>
+
+There are several nice features of the C preprocessor.
+One of the more useful ones that I have used is the __LINE__ variable
+(that is two underscore characters on either side of LINE; total of four underscores).
+This is not a C variable, it is a preprocessor variable.
+The C preprocessor will go through and replace this variable with the line
+number on which it occurs before compiling the file.
+Therefore, suppose you have something like the following
+at the top of your file:
+<pre>
+	#define HI	printf("line %d\n",__LINE__);
+</pre>
+You can go through your code and pepper it with "HI" statements
+so that you know exactly when something happened.
+Note that this means you have to have turned off buffering on <i>stdout</i>,
+as described above, or you have to explicitly flush the output, as follows:
+<pre>
+	#define HI	{ printf("line %d\n",__LINE__); fflush(stdout); }
+</pre>
+The <i>fflush</i> function call tells the printing library to immediately
+print the contents of the buffer.
+Once you have this set up, you can place these little "HI" statements throughout
+the problem-areas of your code and learn exactly where things went wrong:
+<pre>
+	main(int argc, char *argv[])
+	{
+	    /* variable declarations removed */
+
+	    if (argc != 3) {
+		printf("error: usage: %s <assembly-code-file> <machine-code-file> \n",
+		    argv[0]);
+		exit(1);
+	    }
+
+	    HI
+
+	    inFileString = argv[1];
+	    outFileString = argv[2];
+
+	    HI
+
+	    inFilePtr = fopen(inFileString, "r");
+
+	    HI
+
+	    if (inFilePtr == NULL) {
+		printf("error in opening %s\n", inFileString);
+		exit(1);
+	    }
+
+	    HI
+
+	    outFilePtr = fopen(outFileString, "w");
+
+	    HI
+
+	    if (outFilePtr == NULL) {
+		printf("error in opening %s\n", outFileString);
+		exit(1);
+	    }
+
+	    HI
+</pre>
+When you run the program, you will see a stream of "line XXX" statements.
+The last one that prints is the last thing that executed correctly, so
+this should help you home in on the thing that caused the SEGFAULT.
+
+<p>
+<strong><font size=+1>Pointers</font></strong>
+</p>
+
+Pointers represent possibly the single largest source of errors in writing C programs.
+Some of the problems arise because people are a bit unsure about when to use the
+* operator, other problems arise because people forget that the pointers are
+uninitialized, or have unexpected values (NULL pointers usually cause the most grief),
+and then even more problems arise because the pointers reference locations that
+are no longer valid (for instance, locations on the stack).
+I will address each of these in turn.
+
+<p>
+
+<b>What is the point of the * operator and when should it be used?</b>
+
+<p>
+
+The * operator is used in both pointer declarations and in normal expressions.
+There is a fairly simple way to determine what a pointer is and how to use it;
+when you declare a pointer, it looks something like the following:
+<pre>
+	int *ip;
+</pre>
+You can always tell what something is from the way it was declared:
+<pre>
+	int *                     ip;           (ip is an int *)
+	int                      *ip;           (*ip is an int)
+</pre>
+The original declaration says that <i>ip</i> is a pointer to an integer.
+From then on, when you use the expression
+<pre>
+	ip
+</pre>
+it is evaluated to mean a pointer.
+The variable <i>ip</i> contains a number that is interpreted to be
+the address of a storage location holding an integer value.
+If you want to see the <i>contents</i> of that storage location, you use the * operator.
+From the original declaration, if we look at both the * and the <i>ip</i> together,
+we see that the combination is an int:
+<pre>
+	int *ip;
+	int                      *ip;           (*ip is an int)
+</pre>
+Therefore the expression
+<pre>
+	*ip
+</pre>
+evaluates to the <i>contents</i> of the storage location that <i>ip</i> points to,
+i.e. an integer.
+
+<p>
+
+Note that this even extends to pointer-pointers:
+<pre>
+	char **cpp;
+
+	char **                  cpp            (cpp is a pointer to a char-pointer)
+	char *                  *cpp            (*cpp is a char-pointer)
+	char                   **cpp            (**cpp is a character)
+</pre>
+The expression
+<pre>
+	cpp
+</pre>
+evaluates to a pointer referencing another pointer.
+The expression
+<pre>
+	*cpp
+</pre>
+evaluates to the pointer that <i>cpp</i> references.
+And the expression
+<pre>
+	**cpp
+</pre>
+evaluates to the character that <i>*cpp</i> references (or the first character
+in the string, if appropriate).
+
+<p>
+
+<b>When is a pointer initialized <i>properly</i>?</b>
+
+<p>
+
+A pointer is initialized properly when it contains the location of what
+you expected it to.
+For instance, if you expect the pointer to reference some structure or
+a string somewhere in memory, then it should contain some large number,
+and it should definitely NOT contain the value zero.
+For instance, the following is an error:
+<pre>
+	char *cp;
+	printf("%s\n", cp);
+</pre>
+We are using the pointer <i>cp</i> before we have initialized it to anything.
+Similarly, the following is an error:
+<pre>
+	char *cp;
+	strcpy(cp, "some string");
+</pre>
+This is an error because <i>cp</i> does not yet refer to a valid storage location.
+When we attempt to copy bytes into the storage location that <i>cp</i> points to,
+we send the bytes into limbo.
+Most likely, <i>cp</i> points to memory address 0 or a random location.
+Memory address 0 is actually good (<i>cp</i> == NULL) because the program
+will die as soon as we attempt to copy anything into location 0.
+If the pointer initially points out into the wild blue yonder (as it
+probably does if the pointer is an <i>automatic variable</i>--see the
+<a href="ex-3.html">Crash Course on C</a>), then it might accidentally
+point to a memory location that we <i>do</i> have permission to overwrite, 
+in which case we're trampling on <i>good</i> data.
+This problem is <i>extremely</i> hard to detect; generally, the program simply
+dies, but it dies much later than spot at which you overwrite good data.
+In some systems, the problems could show up minutes, hours, or even <i>years</i> later.
+Or perhaps the program never dies, and the only weirdness is that every third
+Tuesday, people living in towns that begin with the letter <i>V</i> are charged
+$100 per minute for their long-distance phone calls.
+<p>
+So when you are programming your RiSC assembler, there are points at which 
+you initialize the pointers <i>label</i>, <i>opcode</i>, <i>arg1</i>, <i>arg2</i>, etc.
+(or whatever you chose to call them).
+Every time through the loop, these pointers are re-initialized to have new values.
+Therefore, every time through the loop--every time you read a new line from the
+assembly-code file--these point to new places.
+And some may have been set to the value NULL to indicate that such an item
+was not present on the assembly-code line (for instance, the line did not have
+an initial <i>label</i>).
+You do NOT want to try to print these values out before testing them.
+The best solution:
+<pre>
+	if (label != NULL) {
+	    printf("label = %s\n", label);
+	} else {
+	    printf("label = NULL\n");
+	}
+	if (opcode != NULL) {
+	    printf("opcode = %s\n", opcode);
+	} else {
+	    printf("opcode = NULL\n");
+	}
+	if (arg1 != NULL) {
+	    printf("arg1 = %s\n", arg1);
+	} else {
+	    printf("arg1 = NULL\n");
+	}
+	...
+</pre>
+In general--do not attempt to <i>use</i> a pointer (i.e. print it out, copy from it, copy into it)
+until you know for sure that it is valid.
+
+<p>
+
+<b>All of a sudden, the data I'm pointing to changed, and I <i>know</i> I didn't do it.</b>
+
+<p>
+
+I have mentioned before that there is a huge difference between statically-defined data
+objects and automatic variables.
+In the following example, every variable that begins with an upper-case letter
+happens to be statically-defined, every variable beginning with a lower-case letter
+is an automatic variable.
+Note that the code below contains at least one flaw.
+<pre>
+	#include &lt;stdio.h&gt;
+
+	short ProgramCounter;
+	char  Labels[100][16];
+	short Addresses[100];
+	int   NumValidLabels;
+
+	short
+	get_label_address(s)
+	char *s;
+	{
+	    int i;
+
+	    for (i=0; i&lt;NumValidLabels; i++) {
+		if (strlen(Labels[i]) == 0) {
+		    printf("problem: empty label in the Labels array.\n");
+		    printf("  either NumValidLabels is wrong, or we \n");
+		    printf("  messed up somewhere.\n");
+		    return -1;
+		}
+		if (strcmp(Labels[i], s) == 0) {
+		    return Addresses[i];
+		}
+	    }
+	    return -1;
+	}
+
+	char *
+	read_a_line_of_input(fp)
+	FILE *fp;
+	{
+	    char line[128];
+	    static int LineCount=0;
+
+	    if (fgets(line, 128, fp) == NULL) {
+		return NULL;
+	    } else {
+		LineCount++;
+		return line;
+	    }
+	}
+
+	FILE *OutFilePtr;
+
+	main(int argc, char *argv[])
+	{
+	    FILE *infileptr;
+	    char *cp;
+
+	    if (argc != 3) { 
+		printf("error: usage: %s &lt;assembly-code file&gt; &lt;machine-code file&gt;\n", argv[0]); 
+		exit(1);
+	    }
+
+	    infileptr = fopen(argv[1], "r");
+	    if (infileptr == NULL) {
+		printf("error: can't open file %s", argv[1]);
+		perror("fopen");
+		exit(1);
+	    }
+
+	    OutFilePtr = fopen(argv[2], "w");
+	    if (OutFilePtr == NULL) {
+		printf("error: can't open file %s", argv[2]);
+		perror("fopen");
+		exit(1);
+	    }
+
+	    while ((cp = read_a_line_of_input(fileptr)) != NULL) {
+		/* do stuff */
+	    }
+	}
+</pre>
+The four variables at the top of the program are all global variables, visible to all functions.
+The <i>OutFilePtr</i> variable just above the <i>main</i> function is also global,
+but it is only visible to the <i>main</i> function (and any functions that may be below <i>main</i>).
+Each of the lower-case variables in the various functions are automatic variables and
+are destroyed as soon as the function exits.
+Note that the <i>main</i> function is not destroyed until the program terminates, so for
+all intents and purposes, the automatic variables in <i>main</i> are static because they
+will never go away -- <b>however</b>, they are only visible inside the <i>main</i> function.
+Similarly, the <i>LineCount</i> variable in the <i>read_a_line_of_input</i> function is
+declared as static, and is allocated on the heap; it will never get destroyed until the
+program terminates, and the variable is only visible to the function <i>read_a_line_of_input</i>.
+
+<p>
+
+Here is the flaw.
+The <i>read_a_line_of_input</i> function has an automatic-storage variable called <i>line</i>
+that it reads data into (via <i>fgets</i>).
+Then it returns the address of the data buffer.
+Since the buffer is allocated on the stack, it will be wiped out.
+Therefore, you cannot trust data returned from this function.
+When you point to it, the data might look good at first, but <b>very soon</b> the data
+will change out from under your feet.
+(technically speaking, there is a window of opportunity in which the data will be valid,
+and I can go into that later if anyone is interested)
+
+<p>
+
+How do you fix this flaw?  Oe solution: make the <i>line</i> variable static by moving it
+outside of the function in which it is used.  
+Fom that point on, it is a global variable, and it will not go away when the stack is purged.
+It will also be visible to any other function in the program, but hopefully the program is written
+so that other functions keep their hands off.
+
+<p>
+
+By the way, the <i>get_label_address</i> function works correctly and is not flawed.
+You will need something similar to this in your assembler.
+
+<p>
+
+Hope this helps,<br>
+Prof. Jacob
+
+
+</BODY>
+</HTML>

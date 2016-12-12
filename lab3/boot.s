@@ -1,3 +1,4 @@
+.data
 .equ    FIQSTACK3 , 21504
 .equ    IRQSTACK3 , 22528
 .equ    KSTACK3   , 38912
@@ -26,7 +27,6 @@
 .equ    GREEN,          0x1
 .equ    RED,            0x2
 
-             .data @start with group varible declaration.
 res_handler: .word reset
 @und_handler: .word Undefine_Handler
 swi_handler: .word SVI_Handler
@@ -40,12 +40,12 @@ fiq_handler: .word FIQ_Handler
 _start:    
         ldr pc,res_handler @ RESET handler! ! ! - runs in SVC mode
 @        ldr pc,und_handler @ UNDEFINED INSTR handler! - runs in UND mode
-        ldr pc,swi_handler @ SWI (TRAP) handler! ! - runs in SVC mode
+@        ldr pc,swi_handler @ SWI (TRAP) handler! ! - runs in SVC mode
 @        ldr pc,pre_handler @ PREFETCH ABORT handler!! - runs in ABT mode
 @        ldr pc,dat_handler @ DATA ABORT handler! ! - runs in ABT mode
 @        ldr pc,hyp_handler @ HYP MODE handler! ! - runs in HYP mode
-        ldr pc,irq_handler @ IRQ INTERRUPT handler! ! - runs in IRQ mode
-        ldr pc,fiq_handler @ FIQ INTERRUPT handler! ! - runs in FIQ mode
+@       ldr pc,irq_handler @ IRQ INTERRUPT handler! ! - runs in IRQ mode
+@        ldr pc,fiq_handler @ FIQ INTERRUPT handler! ! - runs in FIQ mode
       
 reset:
 	mrc p15, 0, r0, c1, c0, 0 @ Read System Control Register

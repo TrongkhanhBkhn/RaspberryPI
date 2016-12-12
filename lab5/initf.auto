@@ -1,0 +1,6 @@
+extern void  void ;
+extern void  _init_led() ;
+extern void  _init_time() ;
+void ;
+_init_led() ;
+_init_time() ;
