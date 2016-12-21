@@ -9,7 +9,7 @@
 #define INT_SET_BASE			0x40000080
 /* clear bits - read/write */
 #define INT_CLR_BASE			0x400000C0
-
+#define INT_AA 0x0C
 void
 interrupt_core( unsigned int core )
 {

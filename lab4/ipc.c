@@ -13,7 +13,13 @@
 #define INT_SET_BASE			0x40000080
 /* clear bits - read/write */
 #define INT_CLR_BASE			0x400000C0
+/* mb interrupt */
+#define INT_BASE 				0x40000050
 
+
+m_box* mbox_c0_set = (struct m_box *)INT_SET_BASE;
+m_box* mbox_c0_clear = (struct m_box *)INT_CLR_BASE;
+m_box* mbox_c0_int = (struct m_box *) INT_BASE;
 void
 interrupt_core( unsigned int core )
 {
@@ -25,7 +31,9 @@ clear_interrupt( unsigned int core )
 {
 	PUT32(INT_CLR_BASE + ((core & 0xf) << 4), 0xFFFFFFFF);
 }
-
+void SWI_Handler(void) __attribute__((interrupt("SWI")));
+void IRQ_Handler(void) __attribute__((interrupt("IRQ")));
+void FIQ_Handler(void) __attribute__((interrupt("FIQ")));
 //
 // sets the top bit (bit 31) of the outgoing message 					(VALIDBIT)
 // sets the sender ID, determined by calling cpu_id(), in bits 28-29	(IDMASK)
@@ -49,6 +57,14 @@ unsigned int
 recv( unsigned int timeout )
 {
 	// your code goes here
+	unsigned int msg = 0;
+	while(timeout --)
+	{
+		msg = GET32(INT_CLR_BASE);
+		if(!msg)
+			return msg;
+	}
+	return 0;
 }
 
 //
@@ -82,5 +98,20 @@ void _init_ipc()
 	PUT32(0x4000005C, INT_NONE);
 
 	return;
+}
+
+void SWI_Handler(void)
+{
+
+}
+
+void IRQ_Handler(void)
+{
+
+}
+
+void FIQ_Handler(void)
+{
+
 }
 

@@ -85,4 +85,15 @@ extern unsigned int cpu_id ( void );
 extern void idle ( void );
 
 
+struct _m_box
+{
+	unsigned int cm0;
+	unsigned int cm1;
+	unsigned int cm2;
+	unsigned int cm3;
+};
+
+typedef _m_box m_box;
+
+
 
