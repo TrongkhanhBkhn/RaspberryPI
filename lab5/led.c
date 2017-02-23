@@ -5,6 +5,7 @@
 #define GPFSEL4 0x3F200010
 #define GPSET1  0x3F200020
 #define GPCLR1  0x3F20002C
+#define GPCLR2  0x3F20002C
 
 
 //-------------------------------------------------------------------------
